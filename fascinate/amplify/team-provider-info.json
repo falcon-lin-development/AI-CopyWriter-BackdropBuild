@@ -10,6 +10,14 @@
       "StackName": "amplify-fascinate-dev-33be9",
       "StackId": "arn:aws:cloudformation:ap-southeast-1:891141962740:stack/amplify-fascinate-dev-33be9/7fa55830-4cec-11ef-a2c3-02ce1ef5d103",
       "AmplifyAppId": "d2156xzapivgvo"
+    },
+    "categories": {
+      "hosting": {
+        "amplifyhosting": {
+          "appId": "d2156xzapivgvo",
+          "type": "cicd"
+        }
+      }
     }
   }
 }
