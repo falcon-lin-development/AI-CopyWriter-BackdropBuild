@@ -69,7 +69,7 @@ export class VAStack extends cdk.Stack {
     // Response Subscription
     // sns::=> snsResultToSG
     const sqsResultFromUs = sqs.Queue.fromQueueArn(this, 'SqsResultFromUs', props.sqsResultFromUsArn)
-    const subscription =snsResultToSG.addSubscription(
+    const subscription = snsResultToSG.addSubscription(
       new snsSubscriptions.SqsSubscription(
         sqsResultFromUs
       )
@@ -94,6 +94,8 @@ export class VAStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "bedrock.handler",
       code: lambda.Code.fromAsset('lambda'),
+      timeout: cdk.Duration.minutes(3),  // Set timeout to 5 minutes
+
       environment: {
         S3_BUCKET: s3BucketUS.bucketName,
         VECTOR_TABLE: vectorTable.tableName,
@@ -107,22 +109,47 @@ export class VAStack extends cdk.Stack {
     snsResultToSG.grantPublish(bedrockLambda);
 
     sqsRequestFromSG.grantConsumeMessages(bedrockLambda);
+    // Grant DynamoDB permissions
+    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem'],
+      resources: [vectorTable.tableArn],
+    }));
+
+    // Grant S3 permissions
+    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['s3:PutObject'],
+      resources: [s3BucketUS.bucketArn],
+    }));
+
+    // Grant SNS permissions
+    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sns:Publish'],
+      resources: [snsResultToSG.topicArn],
+    }));
+
+    // Grant SQS permissions
     bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: [
-        'dynamodb:PutItem',
-        "s3:PutObject",
-        'sns:Publish',
         'sqs:ReceiveMessage',
         'sqs:DeleteMessage',
-        'sqs:GetQueueAttributes'
+        'sqs:GetQueueAttributes',
+      ],
+      resources: [sqsRequestFromSG.queueArn],
+    }));
 
-      ],
+    // Grant Bedrock permissions
+    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
       resources: [
-        vectorTable.tableArn,
-        s3BucketUS.bucketArn,
-        snsResultToSG.topicArn,
-        sqsRequestFromSG.queueArn
-      ],
+        // `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-20240307`,
+        `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-text-lite-v1`,
+        // '*'
+        `arn:aws:bedrock:${this.region}::foundation-model/meta.llama3-8b-instruct-v1:0`,
+        `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-text-premier-v1:0`,
+        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
+        `arn:aws:bedrock:${this.region}::foundation-model/meta.llama3-70b-instruct-v1:0`,
+        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0`,
+      ], // Consider restricting this if possible
     }));
 
     // Event source mapping
