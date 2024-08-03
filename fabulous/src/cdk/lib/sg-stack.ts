@@ -50,7 +50,7 @@ export class SGStack extends cdk.Stack {
      */
     const connectLambda = new lambda.Function(this, 'ConnectLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "connect.handler",
+      handler: "handlers/connect.handler",
       code: lambda.Code.fromAsset('lambda'),
       environment: {
         REGULAR_TABLE: regularTable.tableName,
@@ -59,7 +59,7 @@ export class SGStack extends cdk.Stack {
 
     const disconnectLambda = new lambda.Function(this, "DisconnectLambda", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "disconnect.handler",
+      handler: "handlers/disconnect.handler",
       code: lambda.Code.fromAsset('lambda'),
       environment: {
         REGULAR_TABLE: regularTable.tableName,
@@ -68,7 +68,7 @@ export class SGStack extends cdk.Stack {
 
     const messageLambda = new lambda.Function(this, 'MessageLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "message.handler",
+      handler: "handlers/message.handler",
       code: lambda.Code.fromAsset('lambda'),
       environment: {
         REGULAR_TABLE: regularTable.tableName,
@@ -79,7 +79,7 @@ export class SGStack extends cdk.Stack {
 
     const pingLambda = new lambda.Function(this, 'PingLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "lambda/ping.handler",
+      handler: "handlers/ping.handler",
       code: lambda.Code.fromAsset('lambda'),
     });
 
@@ -133,7 +133,7 @@ export class SGStack extends cdk.Stack {
     const resultProcessorLambda = new lambda.Function(this, 'ResultProcessorLambda', {
       functionName: cdk.PhysicalName.GENERATE_IF_NEEDED,
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "resultProcessor.handler",
+      handler: "handlers/resultProcessor.handler",
       code: lambda.Code.fromAsset('lambda'),
       environment: {
         APIGATEWAY_ENDPOINT: apiGatewayEndpoint,

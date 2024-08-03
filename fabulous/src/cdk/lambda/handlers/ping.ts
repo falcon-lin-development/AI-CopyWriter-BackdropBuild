@@ -1,6 +1,6 @@
 import { APIGatewayEvent, Context } from 'aws-lambda';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
-import { debug, error, info } from "./logger";
+import { debug, error, info } from "../common/logger";
 import { readdirSync } from 'fs';
 
 // Replace with your default region if needed

@@ -52,7 +52,7 @@ export class VAStack extends cdk.Stack {
     );
     const bedrockLambda = new lambda.Function(this, 'BedrockLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "bedrock.handler",
+      handler: "handlers/bedrock.handler",
       code: lambda.Code.fromAsset('lambda'),
       timeout: cdk.Duration.minutes(3),  // Set timeout to 5 minutes
       environment: {

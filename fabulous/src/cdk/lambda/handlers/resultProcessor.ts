@@ -1,4 +1,4 @@
-import { debug, error, info } from "./logger";
+import { debug, error, info } from "../common/logger";
 import { SNSEvent, SNSEventRecord, SQSEvent, SQSRecord } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';

@@ -1,4 +1,4 @@
-import { handler } from "../lambda/message";
+import { handler } from "../lambda/handlers/message";
 import { APIGatewayEvent, Context } from "aws-lambda";
 
 const event: APIGatewayEvent = {

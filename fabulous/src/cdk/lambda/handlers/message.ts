@@ -1,4 +1,4 @@
-import { debug, error, info } from "./logger";
+import { debug, error, info } from "../common/logger";
 import { Context } from 'aws-lambda';
 import { APIGatewayProxyWebsocketHandlerV2, APIGatewayProxyWebsocketEventV2 } from 'aws-lambda';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
