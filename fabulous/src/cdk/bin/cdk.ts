@@ -21,7 +21,7 @@ const vaStack = new VAStack(app, 'BCA-AI-VA-Stack', {
     region: 'us-east-1'
   }, // N. Virginia region
   snsToUsArn: sgStack.snsToUs.topicArn,
-  sqsResultFromUsArn: sgStack.sqsResultFromUs.queueArn,
+  resultProcessorLambdaArn: sgStack.resultProcessorLambda.functionArn,
 });
 
 vaStack.addDependency(sgStack);

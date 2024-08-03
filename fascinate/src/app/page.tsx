@@ -80,6 +80,8 @@ const Home: NextPage = () => {
       websocket.current.send(JSON.stringify(payload));
     }
   };
+
+  
   return (
     <>
       <AppBar />

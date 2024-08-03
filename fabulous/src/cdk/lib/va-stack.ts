@@ -10,7 +10,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 
 interface VAStackProps extends cdk.StackProps {
   snsToUsArn: string;
-  sqsResultFromUsArn: string;
+  resultProcessorLambdaArn: string;
 }
 
 export class VAStack extends cdk.Stack {
@@ -39,126 +39,63 @@ export class VAStack extends cdk.Stack {
     const snsResultToSG = new sns.Topic(this, 'SnsResultToSG', {
       topicName: cdk.PhysicalName.GENERATE_IF_NEEDED,
     });    // SNS topic for results in US  
-
-    const sqsRequestFromSG = new sqs.Queue(this, 'SqsRequestFromSG', {
-      queueName: cdk.PhysicalName.GENERATE_IF_NEEDED,
-    });    // SQS queue in US
-
-    /**
-     * Subscriptions
-     */
-    // Request Subscription
     const snsToUs = sns.Topic.fromTopicArn(this, 'SnsToUs', props.snsToUsArn)
-    // sqs::=> sqsRequestFromSG
-    snsToUs.addSubscription(new snsSubscriptions.SqsSubscription(
-      sqsRequestFromSG
-    )
-    ); // Subscribe US SQS queue to SG SNS topic
-    snsToUs.grantPublish(new iam.ServicePrincipal('sns.amazonaws.com'));
-    sqsRequestFromSG.addToResourcePolicy(new iam.PolicyStatement({
-      actions: ['sqs:SendMessage'],
-      principals: [new iam.ServicePrincipal('sns.amazonaws.com')],
-      resources: [sqsRequestFromSG.queueArn],
-      conditions: {
-        ArnEquals: {
-          'aws:SourceArn': snsToUs.topicArn,
-        },
-      },
-    }));
-
-    // Response Subscription
-    // sns::=> snsResultToSG
-    const sqsResultFromUs = sqs.Queue.fromQueueArn(this, 'SqsResultFromUs', props.sqsResultFromUsArn)
-    const subscription = snsResultToSG.addSubscription(
-      new snsSubscriptions.SqsSubscription(
-        sqsResultFromUs
-      )
-    ); // Subscribe SG SQS queue to US SNS topic
-    snsResultToSG.grantPublish(new iam.ServicePrincipal('sns.amazonaws.com'));
-    // sqsResultFromUs.addToResourcePolicy(new iam.PolicyStatement({
-    //   actions: ['sqs:SendMessage'],
-    //   principals: [new iam.ServicePrincipal('sns.amazonaws.com')],
-    //   resources: [sqsResultFromUs.queueArn],
-    //   conditions: {
-    //     ArnEquals: {
-    //       'aws:SourceArn': snsResultToSG.topicArn,
-    //     },
-    //   },
-    // }));
 
 
     /*******************
      * Lambda functions
-     */
+    */
+    const resultProcessorLambda = lambda.Function.fromFunctionArn(
+      this,
+      'ResultProcessorLambda',
+      props.resultProcessorLambdaArn
+    );
     const bedrockLambda = new lambda.Function(this, 'BedrockLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "bedrock.handler",
       code: lambda.Code.fromAsset('lambda'),
       timeout: cdk.Duration.minutes(3),  // Set timeout to 5 minutes
-
       environment: {
         S3_BUCKET: s3BucketUS.bucketName,
         VECTOR_TABLE: vectorTable.tableName,
         SNS_RESULT_TOPIC: snsResultToSG.topicArn
       }
     });
+
+    /**
+     * Subscriptions
+     */
+    snsToUs.addSubscription(new snsSubscriptions.LambdaSubscription(bedrockLambda));
+    snsResultToSG.addSubscription(new snsSubscriptions.LambdaSubscription(resultProcessorLambda));
+
     /*******************
      * Permissions
      */
-    s3BucketUS.grantPut(bedrockLambda);
-    snsResultToSG.grantPublish(bedrockLambda);
-
-    sqsRequestFromSG.grantConsumeMessages(bedrockLambda);
-    // Grant DynamoDB permissions
-    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:PutItem'],
-      resources: [vectorTable.tableArn],
-    }));
 
     // Grant S3 permissions
-    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['s3:PutObject'],
-      resources: [s3BucketUS.bucketArn],
-    }));
+    s3BucketUS.grantPut(bedrockLambda);
 
     // Grant SNS permissions
-    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['sns:Publish'],
-      resources: [snsResultToSG.topicArn],
-    }));
+    snsResultToSG.grantPublish(bedrockLambda);
 
-    // Grant SQS permissions
-    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'sqs:ReceiveMessage',
-        'sqs:DeleteMessage',
-        'sqs:GetQueueAttributes',
-      ],
-      resources: [sqsRequestFromSG.queueArn],
-    }));
 
     // Grant Bedrock permissions
+    const bedrockModels = [
+      'amazon.titan-text-lite-v1',
+      'meta.llama3-8b-instruct-v1:0',
+      'amazon.titan-text-premier-v1:0',
+      'anthropic.claude-3-haiku-20240307-v1:0',
+      'meta.llama3-70b-instruct-v1:0',
+      'anthropic.claude-3-5-sonnet-20240620-v1:0'
+    ];
+
+    const bedrockModelArns = bedrockModels.map(model =>
+      `arn:aws:bedrock:${this.region}::foundation-model/${model}`
+    );
+
     bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],
-      resources: [
-        // `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-20240307`,
-        `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-text-lite-v1`,
-        // '*'
-        `arn:aws:bedrock:${this.region}::foundation-model/meta.llama3-8b-instruct-v1:0`,
-        `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-text-premier-v1:0`,
-        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
-        `arn:aws:bedrock:${this.region}::foundation-model/meta.llama3-70b-instruct-v1:0`,
-        `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0`,
-      ], // Consider restricting this if possible
+      resources: bedrockModelArns,
     }));
-
-    // Event source mapping
-    new lambda.EventSourceMapping(this, 'BedrockLambdaMapping', {
-      target: bedrockLambda,
-      eventSourceArn: sqsRequestFromSG.queueArn,
-      batchSize: 10,
-    });
-
-
   }
 }

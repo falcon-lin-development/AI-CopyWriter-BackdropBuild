@@ -1,5 +1,5 @@
 import { debug, error, info } from "./logger";
-import { SQSEvent, SQSRecord, Context } from 'aws-lambda';
+import { SQSEvent, SQSRecord, Context, SNSEvent, SNSEventRecord } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
@@ -12,7 +12,7 @@ const sns = new SNSClient({});
 const s3 = new S3Client({});
 const bedrockClient = new BedrockRuntimeClient({ region: "us-east-1" });
 
-export const handler = async (event: SQSEvent, context: Context) => {
+export const handler = async (event: SNSEvent, context: Context) => {
   debug("Bedrock", { event, context });
 
 
@@ -21,14 +21,13 @@ export const handler = async (event: SQSEvent, context: Context) => {
   }
 };
 
-async function processRecord(record: SQSRecord): Promise<void> {
+async function processRecord(record: SNSEventRecord): Promise<void> {
   try {
     debug("Start Process Record", { record });
 
-    // const message = JSON.parse(record.body);
-    const body = JSON.parse(record.body);
-    const message = JSON.parse(body.Message);
-    debug("Parsed Body & Message", { body, message });
+    const snsMsg = JSON.parse(record.Sns.Message);
+    
+    debug("Parsed snsMsg", { snsMsg });
 
 
     // Simulate Bedrock processing
@@ -45,7 +44,7 @@ async function processRecord(record: SQSRecord): Promise<void> {
       Generate a concise, engaging Instagram post for a business client on behave of their request. \
       
       """client request
-      ${message.message.message}
+      ${snsMsg.message.message}
       """
       
       The post should:
@@ -98,7 +97,7 @@ async function processRecord(record: SQSRecord): Promise<void> {
     const dynamoParams = {
       TableName: process.env.VECTOR_TABLE!,
       Item: {
-        id: message.connectionId,
+        id: snsMsg.connectionId,
         vector: 'Simulated vector data',
         timestamp: new Date().toISOString()
       }
@@ -109,7 +108,7 @@ async function processRecord(record: SQSRecord): Promise<void> {
     // Store result in S3
     const s3Params = {
       Bucket: process.env.S3_BUCKET!,
-      Key: `result-${message.connectionId}.txt`,
+      Key: `result-${snsMsg.connectionId}.txt`,
       Body: result
     };
     // await s3.send(new PutObjectCommand(s3Params));
@@ -117,7 +116,7 @@ async function processRecord(record: SQSRecord): Promise<void> {
 
     // Publish result to SNS
     const snsParams = {
-      Message: JSON.stringify({ connectionId: message.connectionId, result }),
+      Message: JSON.stringify({ connectionId: snsMsg.connectionId, result }),
       TopicArn: process.env.SNS_RESULT_TOPIC
     };
     await sns.send(new PublishCommand(snsParams));
@@ -231,11 +230,11 @@ const claude3 = async ({
       accept: "application/json",
       body: JSON.stringify({
         anthropic_version: "bedrock-2023-05-31",
-        messages:[
+        messages: [
           {
             role: "user",
             content: [
-              {type: "text", text: prompt}
+              { type: "text", text: prompt }
             ]
           }
         ],
@@ -250,7 +249,7 @@ const claude3 = async ({
     const bedrockResponse = await bedrockClient.send(command);
     // Parse Bedrock response
     const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponse.body));
-    debug('Bedrock response', { modelId, bedrockResponse,responseBody  });
+    debug('Bedrock response', { modelId, bedrockResponse, responseBody });
     const result = responseBody.completion || responseBody.content[0].text;
     debug('Bedrock result', { modelId, result });
     return result

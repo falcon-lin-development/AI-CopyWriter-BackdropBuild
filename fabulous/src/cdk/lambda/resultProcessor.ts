@@ -1,5 +1,5 @@
 import { debug, error, info } from "./logger";
-import { SQSEvent, SQSRecord } from 'aws-lambda';
+import { SNSEvent, SNSEventRecord, SQSEvent, SQSRecord } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
@@ -15,7 +15,7 @@ const apiGateWayClient = new ApiGatewayManagementApiClient({
 });
 
 
-export const handler = async (event: SQSEvent): Promise<void> => {
+export const handler = async (event: SNSEvent): Promise<void> => {
     console.log('Result processor event:', JSON.stringify(event, null, 2));
 
     for (const record of event.Records) {
@@ -23,15 +23,15 @@ export const handler = async (event: SQSEvent): Promise<void> => {
     }
 };
 
-async function processRecord(record: SQSRecord): Promise<void> {
+async function processRecord(record: SNSEventRecord): Promise<void> {
     try {
         debug("Start Process Record", { record });
 
-        const body = JSON.parse(record.body);
-        const { connectionId, result } = JSON.parse(body.Message);
-        debug("Parsed Body & Message", { 
-            body, 
-            message: {connectionId, result} 
+        // const body = JSON.parse(record.body);
+        const snsMsg = JSON.parse(record.Sns.Message);
+        const { connectionId, result } = snsMsg
+        debug("Parsed Message", {
+            snsMsg
         });
 
 

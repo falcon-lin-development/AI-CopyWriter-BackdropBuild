@@ -17,8 +17,8 @@ import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integra
 
 export class SGStack extends cdk.Stack {
   public readonly snsToUs: sns.Topic; // SNS topic to forward messages to US
-  public readonly sqsResultFromUs: sqs.Queue; // SQS queue to get results from US
-
+  // public readonly sqsResultFromUs: sqs.Queue; // SQS queue to get results from US
+  public readonly resultProcessorLambda: lambda.Function; // Lambda function to process results from US
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -38,36 +38,12 @@ export class SGStack extends cdk.Stack {
 
     /*******************
      * SNS topics & SQS queues
-     */
-    const snsRequest = new sns.Topic(this, 'SnsRequest');
-    const sqsRequest = new sqs.Queue(this, 'SqsRequest'); // SQS queue in Singapore
-    // Subscribe SQS queue to SNS topics
-    snsRequest.addSubscription(new snsSubscriptions.SqsSubscription(sqsRequest));    // Subscribe SQS queue to SNS topic
-
-    /*******************
      * Cross regoin 
      */
-    this.snsToUs = new sns.Topic(this, 'SnsToUs', {
+    const snsToUs = new sns.Topic(this, 'SnsToUs', {
       topicName: cdk.PhysicalName.GENERATE_IF_NEEDED,
     }); // send messages to US
-
-    const sqsResultFromUs = new sqs.Queue(this, 'SqsResultFromUs', {
-      queueName: cdk.PhysicalName.GENERATE_IF_NEEDED,
-    }); // get results from US
-    this.sqsResultFromUs = sqsResultFromUs;
-    sqsResultFromUs.addToResourcePolicy(new iam.PolicyStatement({
-      actions: ['sqs:SendMessage'],
-      principals: [new iam.ServicePrincipal('sns.amazonaws.com')],
-      resources: [sqsResultFromUs.queueArn],
-      conditions: {
-        // ArnEquals: {
-        //   'aws:SourceArn': snsResultToSG.topicArn,
-        // },
-        ArnLike: {
-          'aws:SourceArn': `arn:aws:sns:us-east-1:${this.account}:*SnsResultToSG*`,
-        },
-      },
-    }));
+    this.snsToUs = snsToUs;
 
     /*******************
      * Lambda functions
@@ -96,7 +72,8 @@ export class SGStack extends cdk.Stack {
       code: lambda.Code.fromAsset('lambda'),
       environment: {
         REGULAR_TABLE: regularTable.tableName,
-        SNS_REQUEST_TOPIC: snsRequest.topicArn,
+        // SNS_REQUEST_TOPIC: snsRequest.topicArn,
+        SNS_REQUEST_TOPIC: snsToUs.topicArn,
       }
     });
 
@@ -153,17 +130,8 @@ export class SGStack extends cdk.Stack {
     /*******************
      * Lambda request/response functions
      */
-    const requestProcessorLambda = new lambda.Function(this, 'RequestProcessorLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "requestProcessor.handler",
-      code: lambda.Code.fromAsset('lambda'),
-      environment: {
-        SNS_TO_US_TOPIC: this.snsToUs.topicArn,
-        REGULAR_TABLE: regularTable.tableName,
-      }
-    });
-
     const resultProcessorLambda = new lambda.Function(this, 'ResultProcessorLambda', {
+      functionName: cdk.PhysicalName.GENERATE_IF_NEEDED,
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "resultProcessor.handler",
       code: lambda.Code.fromAsset('lambda'),
@@ -172,82 +140,25 @@ export class SGStack extends cdk.Stack {
         REGULAR_TABLE: regularTable.tableName,
       }
     });
-
+    this.resultProcessorLambda = resultProcessorLambda;
 
     /*******************
      * Permissions
      */
-    connectLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:PutItem'],
-      resources: [regularTable.tableArn],
-    }));
+    regularTable.grantWriteData(connectLambda);
+    regularTable.grantWriteData(disconnectLambda);
+    regularTable.grantReadWriteData(messageLambda);
+    snsToUs.grantPublish(messageLambda);
+    api.grantManageConnections(messageLambda);
+    regularTable.grantReadWriteData(pingLambda);
+    api.grantManageConnections(pingLambda);
+    regularTable.grantReadWriteData(resultProcessorLambda);
+    api.grantManageConnections(resultProcessorLambda);
 
-    disconnectLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:DeleteItem'],
-      resources: [regularTable.tableArn],
-    }));
-
-    messageLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'dynamodb:UpdateItem',
-        "sns:Publish",
-        "execute-api:ManageConnections"
-      ],
-      resources: [
-        regularTable.tableArn,
-        snsRequest.topicArn,
-        `arn:aws:execute-api:${this.region}:${this.account}:*/*/POST/@connections/*`
-      ],
-    }));
-
-    pingLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'dynamodb:UpdateItem',
-        "sns:Publish",
-        "execute-api:ManageConnections"
-      ],
-      resources: [
-        regularTable.tableArn,
-        snsRequest.topicArn,
-        `arn:aws:execute-api:${this.region}:${this.account}:*/*/POST/@connections/*`
-      ],
-    }));
-
-    // @dev request/response functions
-    sqsRequest.grantConsumeMessages(requestProcessorLambda);
-    requestProcessorLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:PutItem', 'sns:Publish', 'sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes'],
-      resources: [regularTable.tableArn, this.snsToUs.topicArn, sqsRequest.queueArn],
-    }));
-
-    this.sqsResultFromUs.grantConsumeMessages(resultProcessorLambda);
-    resultProcessorLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'dynamodb:UpdateItem',
-        'execute-api:ManageConnections',
-        'sqs:ReceiveMessage',
-        'sqs:DeleteMessage',
-        'sqs:GetQueueAttributes'
-
-      ],
-      resources: [
-        regularTable.tableArn,
-        `arn:aws:execute-api:${this.region}:${this.account}:*/*/POST/@connections/*`,
-        this.sqsResultFromUs.queueArn
-      ],
-    }));
-
-    // Event source mappings
-    new lambda.EventSourceMapping(this, "RequestProcessorMapping", {
-      target: requestProcessorLambda,
-      eventSourceArn: sqsRequest.queueArn,
-      batchSize: 10,
-    });
-
-    new lambda.EventSourceMapping(this, "ResultProcessorMapping", {
-      target: resultProcessorLambda,
-      eventSourceArn: this.sqsResultFromUs.queueArn,
-      batchSize: 10,
+    resultProcessorLambda.addPermission('AllowSNSInvocation', { // explicit permission
+      principal: new iam.ServicePrincipal('sns.amazonaws.com'),
+      action: 'lambda:InvokeFunction',
+      sourceArn: `arn:aws:sns:us-east-1:${this.account}:*SnsResultToSG*`
     });
   }
 }
