@@ -10,10 +10,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 
-// interface SGStackProps extends cdk.StackProps {
-//   snsResultArn: string;
-// }
-
 
 export class SGStack extends cdk.Stack {
   public readonly snsToUs: sns.Topic; // SNS topic to forward messages to US
