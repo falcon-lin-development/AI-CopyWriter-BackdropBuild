@@ -1,7 +1,11 @@
 import { APIGatewayEvent, Context, APIGatewayProxyWebsocketHandlerV2, APIGatewayProxyWebsocketEventV2 } from 'aws-lambda';
 import { debug, error, info } from "../common/logger";
-import { DynamoDB } from 'aws-sdk';
-const dynamodb = new DynamoDB.DocumentClient();
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+
+
+const client = new DynamoDBClient({});
+const dynamodb = DynamoDBDocumentClient.from(client);
 
 export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event: APIGatewayProxyWebsocketEventV2, context: Context) => {
   try {
@@ -9,11 +13,11 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event: APIGatew
 
     const connectionId = event.requestContext.connectionId;
     const params = {
-      TableName: process.env.REGULAR_TABLE!,
+      TableName: process.env.DDB_TABLE!,
       Key: { id: connectionId }
     };
 
-    // await dynamodb.delete(params).promise();
+    await dynamodb.send(new DeleteCommand(params));
     // console.log('Connection removed from DynamoDB');
     debug("Removed connection", { connectionId });
     return { statusCode: 200, body: 'Disconnected' };

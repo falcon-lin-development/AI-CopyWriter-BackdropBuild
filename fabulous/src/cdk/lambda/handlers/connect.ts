@@ -1,6 +1,6 @@
 import { Context, APIGatewayProxyWebsocketHandlerV2, APIGatewayProxyWebsocketEventV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { debug, error, info } from "../common/logger";
 
 const client = new DynamoDBClient({});
@@ -12,7 +12,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event: APIGatew
     const connectionId = event.requestContext.connectionId;
     const timestamp = new Date().toISOString();
     const params = {
-      TableName: process.env.REGULAR_TABLE!,
+      TableName: process.env.DDB_TABLE!,
       Item: {
         id: connectionId,
         timestamp: timestamp,
@@ -21,7 +21,10 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event: APIGatew
     };
 
     // Your connection logic here
-    // await dynamodb.send(new PutCommand(params));
+    await dynamodb.send(new PutCommand(params));
+    // increment COUNTER_TABLE connection count
+    // await incrementConnectionCount(process.env.COUNTER_TABLE!);
+    
     debug("Stored connection", { connectionId, timestamp });
     return { statusCode: 200, body: 'Connected' };
   } catch (error) {
@@ -29,3 +32,21 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event: APIGatew
     return { statusCode: 500, body: 'Failed to connect' };
   }
 };
+
+
+async function incrementConnectionCount(tableName: string) {
+  await dynamodb.send(new UpdateCommand({
+    TableName: tableName,
+    Key: { id: 'connections' },
+    UpdateExpression: 'SET #count = if_not_exists(#count, :start) + :increment, #lastUpdated = :timestamp',
+    ExpressionAttributeNames: {
+      '#count': 'count',
+      '#lastUpdated': 'lastUpdated',
+    },
+    ExpressionAttributeValues: {
+      ':increment': 1,
+      ':start': 0,
+      ':timestamp': new Date().toISOString(),
+    },
+  }));
+}

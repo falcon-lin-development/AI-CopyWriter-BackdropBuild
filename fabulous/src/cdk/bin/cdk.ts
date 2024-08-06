@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { SGStack } from '../lib/sg-stack';
-import { VAStack } from '../lib/va-stack';
+import { SGStack } from '../lib/sg/sg-stack';
+import { VAStack } from '../lib/va/va-stack';
 
 const app = new cdk.App();
 
