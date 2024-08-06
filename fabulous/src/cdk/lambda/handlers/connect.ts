@@ -23,7 +23,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event: APIGatew
     // Your connection logic here
     await dynamodb.send(new PutCommand(params));
     // increment COUNTER_TABLE connection count
-    // await incrementConnectionCount(process.env.COUNTER_TABLE!);
+    await incrementConnectionCount(process.env.COUNTER_TABLE!);
     
     debug("Stored connection", { connectionId, timestamp });
     return { statusCode: 200, body: 'Connected' };

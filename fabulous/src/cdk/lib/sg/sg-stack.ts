@@ -1,15 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sns from 'aws-cdk-lib/aws-sns';
-import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 
+import { createWebScraperResources } from './ddb-res';
+import { createApiGatewayResources } from './api-gateway-res';
 
 export class SGStack extends cdk.Stack {
   public readonly snsToUs: sns.Topic; // SNS topic to forward messages to US
@@ -21,11 +19,7 @@ export class SGStack extends cdk.Stack {
     /*******************
      * DynamoDB tables
      */
-    const regularTable = new dynamodb.Table(this, 'RegularTable', {
-      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
+    const { regularTable, vectorTable } = createWebScraperResources(this);
 
     /*******************
      * S3 buckets
@@ -44,23 +38,6 @@ export class SGStack extends cdk.Stack {
     /*******************
      * Lambda functions
      */
-    const connectLambda = new lambda.Function(this, 'ConnectLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "handlers/connect.handler",
-      code: lambda.Code.fromAsset('lambda'),
-      environment: {
-        REGULAR_TABLE: regularTable.tableName,
-      }
-    });
-
-    const disconnectLambda = new lambda.Function(this, "DisconnectLambda", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "handlers/disconnect.handler",
-      code: lambda.Code.fromAsset('lambda'),
-      environment: {
-        REGULAR_TABLE: regularTable.tableName,
-      }
-    });
 
     const messageLambda = new lambda.Function(this, 'MessageLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -83,21 +60,7 @@ export class SGStack extends cdk.Stack {
     /*******************
      * WebSocket API
      */
-    const api = new apigatewayv2.WebSocketApi(this, "WebSocketApi", {
-      connectRouteOptions: {
-        integration: new WebSocketLambdaIntegration(
-          "ConnectIntegration",
-          connectLambda,
-        )
-      },
-      disconnectRouteOptions: {
-        integration: new WebSocketLambdaIntegration(
-          "DisconnectIntegration",
-          disconnectLambda
-        ),
-      },
-    });
-
+    const {api, apiGatewayEndpoint} = createApiGatewayResources(this)
     api.addRoute('ping', {
       integration: new WebSocketLambdaIntegration(
         "PingIntegration",
@@ -111,14 +74,6 @@ export class SGStack extends cdk.Stack {
         messageLambda
       ),
     });
-
-    const stage = new apigatewayv2.WebSocketStage(this, 'DevStage', {
-      webSocketApi: api,
-      stageName: 'dev',
-      autoDeploy: true,
-    });
-    // @dev set the APIGATEWAY_ENDPOINT environment variable
-    const apiGatewayEndpoint = stage.url.replace('wss://', 'https://');
     messageLambda.addEnvironment("APIGATEWAY_ENDPOINT", apiGatewayEndpoint);
     pingLambda.addEnvironment("APIGATEWAY_ENDPOINT", apiGatewayEndpoint);
 
@@ -126,8 +81,11 @@ export class SGStack extends cdk.Stack {
     /*******************
      * Lambda request/response functions
      */
-    const resultProcessorLambda = new lambda.Function(this, 'ResultProcessorLambda', {
-      functionName: cdk.PhysicalName.GENERATE_IF_NEEDED,
+
+    const _resultProcessorLambdaId = 'ResultProcessorLambda';
+    const resultProcessorLambda = new lambda.Function(this, _resultProcessorLambdaId, {
+      // functionName: cdk.PhysicalName.GENERATE_IF_NEEDED,
+      functionName: `${this.stackName}_fabulous_${_resultProcessorLambdaId}`,
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "handlers/resultProcessor.handler",
       code: lambda.Code.fromAsset('lambda'),
@@ -138,11 +96,24 @@ export class SGStack extends cdk.Stack {
     });
     this.resultProcessorLambda = resultProcessorLambda;
 
+
+    /*******************
+     * Web Scraper Lambda
+     */
+    const webScraperLambda = new lambda.Function(this, 'webScraperLambda', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'main.handler',
+      code: lambda.Code.fromAsset('lambda-py/webscraper_function'),
+      memorySize: 1024,
+      timeout: cdk.Duration.minutes(10),
+      environment: {
+        TABLE_NAME: vectorTable.tableName,
+      },
+    });
+
     /*******************
      * Permissions
      */
-    regularTable.grantWriteData(connectLambda);
-    regularTable.grantWriteData(disconnectLambda);
     regularTable.grantReadWriteData(messageLambda);
     snsToUs.grantPublish(messageLambda);
     api.grantManageConnections(messageLambda);
@@ -156,5 +127,15 @@ export class SGStack extends cdk.Stack {
       action: 'lambda:InvokeFunction',
       sourceArn: `arn:aws:sns:us-east-1:${this.account}:*SnsResultToSG*`
     });
+
+    vectorTable.grantReadWriteData(webScraperLambda);
+    // Grant Bedrock permissions to Lambda
+    webScraperLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      /**
+       * @TODO only need embedding model
+       */
+      resources: ['*'],
+    }));
   }
 }

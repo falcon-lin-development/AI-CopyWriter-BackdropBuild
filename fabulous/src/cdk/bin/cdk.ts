@@ -20,8 +20,8 @@ const vaStack = new VAStack(app, 'BCA-AI-VA-Stack', {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: 'us-east-1'
   }, // N. Virginia region
-  snsToUsArn: sgStack.snsToUs.topicArn,
-  resultProcessorLambdaArn: sgStack.resultProcessorLambda.functionArn,
+  snsToUsArn: sgStack.snsToUs?.topicArn,
+  resultProcessorLambdaArn: sgStack.resultProcessorLambda?.functionArn,
 });
 
 vaStack.addDependency(sgStack);

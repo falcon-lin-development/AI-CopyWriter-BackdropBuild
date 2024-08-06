@@ -19,11 +19,14 @@ export class VAStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: VAStackProps
   ) {
     super(scope, id, props);
+    return ;
+
     /*******************
      * DynamoDB tables
      */
     const vectorTable = new dynamodb.Table(this, 'VectorTable', {
-      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: 'hash', type: dynamodb.AttributeType.NUMBER },
+      sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });

@@ -3,48 +3,42 @@ sequenceDiagram
     box Singapore Region
     participant APIGateway as API Gateway (WebSocket)
     participant ConnectLambda as Connect Lambda
-    participant MessageLambda as Message Lambda
     participant DisconnectLambda as Disconnect Lambda
-    participant SNS_Request as SNS (Request)
-    participant SQS_Scraper as SQS (Scraper)
+    participant MessageLambda as Message Lambda
     participant ScraperLambda as Scraper Lambda
+    participant ResponseLambda as Response Lambda
+    participant SNS_message as SNS (msg)
     participant SNS_Scraped as SNS (Scraped)
-    participant SQS_Vector as SQS (Vector)
-    participant VectorLambda as Vector Lambda
-    participant DynamoDB as DynamoDB (Regular)
-    participant VectorDB as DynamoDB (HNSW)
-    participant SNS_Vector as SNS (Vector)
-    participant SQS_Bedrock as SQS (Bedrock)
-    participant S3_SG as S3 Bucket (SG)
+    participant DDB_connection as DynamoDB (connection)
+    participant DDB_message as DynamoDB (msg)
+    participant DDB_vector as DynamoDB (LSH)
     end
 
     box US East Region
     participant BedrockLambda as Bedrock Lambda
-    participant S3_US as S3 Bucket (US)
     participant SNS_Result as SNS (Result)
+    participant S3_US as S3 Bucket (US)
+
     end
 
     APIGateway->>ConnectLambda: New connection
-    ConnectLambda->>DynamoDB: Store connection ID
+    ConnectLambda->>DDB_connection: Store connection ID
     APIGateway->>MessageLambda: Incoming message
-    MessageLambda->>DynamoDB: Store request info
-    MessageLambda->>SNS_Request: Publish request
-    SNS_Request->>SQS_Scraper: Send message
-    SQS_Scraper->>ScraperLambda: Trigger
+    MessageLambda->>DDB_message: Store request info
+    MessageLambda->>SNS_message: Publish request
+    SNS_message->>ScraperLambda: Trigger
+    ScraperLambda->>DDB_vector: Store vectors with LSH
     ScraperLambda->>SNS_Scraped: Publish scraped data
-    SNS_Scraped->>SQS_Vector: Send message
-    SQS_Vector->>VectorLambda: Trigger
-    VectorLambda->>VectorDB: Store vectors with HNSW
-    VectorLambda->>SNS_Vector: Publish vector IDs
-    SNS_Vector->>SQS_Bedrock: Send message
-    SQS_Bedrock->>BedrockLambda: Trigger
-    BedrockLambda->>VectorDB: Query relevant vectors
+
+    SNS_Scraped->>BedrockLambda: Trigger
+    BedrockLambda->>DDB_vector: Query relevant vectors
     BedrockLambda->>S3_US: Store generated content
     BedrockLambda->>SNS_Result: Publish result
-    SNS_Result->>MessageLambda: Notify completion
-    MessageLambda->>DynamoDB: Update request status
-    MessageLambda->>APIGateway: Send result to client
+    SNS_Result->>ResponseLambda: Notify completion
+    ResponseLambda->>DDB_message: Update request status
+    ResponseLambda->>APIGateway: Send result to client
+
+    DisconnectLambda->>DDB_connection: Remove connection ID
     APIGateway->>DisconnectLambda: Connection closed
-    DisconnectLambda->>DynamoDB: Remove connection ID
 
 ```
