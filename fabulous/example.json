@@ -1,0 +1,117 @@
+{
+    "marks": {
+        "E": 0,
+        "I": 0,
+        "S": 0,
+        "N": 0,
+        "T": 0,
+        "F": 0,
+        "J": 0,
+        "P": 0
+    },
+    "results": [
+        "INTJ",
+        "INTP",
+        "ENTJ",
+        "ENTP",
+        "INFJ",
+        "INFP",
+        "ENFJ",
+        "ENFP",
+        "ISTJ",
+        "ISFJ",
+        "ESTJ",
+        "ESFJ",
+        "ISTP",
+        "ISFP",
+        "ESTP",
+        "ESFP"
+    ],
+    "questions": [
+        {
+            "type": "radiogroup",
+            "name": "question1",
+            "title": "Friday\"s here and the gang\"s rallying for a night out. What\"s your move?",
+            "isRequired": true,
+            "choicesOrder": "random",
+            "choices": [
+                {
+                    "value": "a",
+                    "text": "Home Hermit: \"Big nights out? Hard pass. I\"m all about cozy evenings in.\""
+                },
+                {
+                    "value": "b",
+                    "text": "Maybe...: \"I'll see how I feel. Sometimes yes, but I need my downtime too.\""
+                },
+                {
+                    "value": "c",
+                    "text": "I'm Down!: \"Absolutely, I\"m in! Hanging with friends is always a boost.\""
+                },
+                {
+                    "value": "d",
+                    "text": "LFG!!!!: \"Oh yes! Bring on the night - I'm here for all the fun and new faces!\""
+                }
+            ]
+        }
+    ],
+    "scoring_logic": {
+        "rules": {
+            "question1": {
+                "condition": {
+                    "mark": "question1",
+                    "value_eq": "a"
+                },
+                "scores": [
+                    { "mark": "I", "value_add": 2 },
+                    { "mark": "I", "weight_multiplier": 2 },
+                    { "mark": "E", "value_assign": 0.8 }
+                ]
+            },
+            "question2": {
+                "condition": {
+                    "mark": "question2",
+                    "value_large_than": {
+                        "mark": "E",
+                        "mark2": "I",
+                        "operation": "add"
+                    }
+                },
+                "scores": [
+                    { "mark": "S", "value_add": 3 }
+                ]
+            }
+        },
+        "global_rules": [
+            {
+                "condition": {
+                    "mark": "E",
+                    "value_large_than": {
+                        "mark": "I"
+                    }
+                },
+                "scores": [
+                    { "mark": "E", "value_add": 2 }
+                ]
+            }
+        ]
+    },
+    "result_logic": {
+        "single_result": true,
+        "result_rules": [
+            {
+                "all_condition_required": true,
+                "conditions": [
+                    { "mark": "E", "value_large_than": { "mark": "I" } }
+                ],
+                "result": "ENTJ"
+            },
+            {
+                "all_condition_required": false,
+                "conditions": [
+                    { "mark": "I", "value_eq": 2 }
+                ],
+                "result": "INTJ"
+            }
+        ]
+    }
+}

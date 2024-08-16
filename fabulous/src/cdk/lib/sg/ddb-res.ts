@@ -13,12 +13,15 @@ export function createWebScraperResources(scope: Construct,): Record<string, dyn
     removalPolicy: cdk.RemovalPolicy.DESTROY,
   });
 
-  const vectorTable = new dynamodb.Table(scope, 'VectorTable', {
-    partitionKey: { name: 'hash', type: dynamodb.AttributeType.NUMBER },
-    sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-    billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-    removalPolicy: cdk.RemovalPolicy.DESTROY,
-  });
+  // const vectorTable = new dynamodb.Table(scope, 'VectorTable', {
+  //   partitionKey: { name: 'hash', type: dynamodb.AttributeType.NUMBER },
+  //   sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+  //   billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  //   removalPolicy: cdk.RemovalPolicy.DESTROY,
+  // });
 
-  return { regularTable, vectorTable };
+  return {
+    regularTable,
+    //  vectorTable 
+  };
 }

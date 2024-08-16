@@ -1,10 +1,14 @@
 import { Construct } from 'constructs';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cdk from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 
+import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
+import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
+
 
 export function createApiGatewayResources(
     scope: Construct,
@@ -55,13 +59,13 @@ export function createApiGatewayResources(
         }
     });
 
-
     /*******************
      * WebSocket API
      */
     const _apiId = 'WebSocketApi';
-    const api = new apigatewayv2.WebSocketApi(scope, "WebSocketApi", {
+    const wsApi = new apigatewayv2.WebSocketApi(scope, "WebSocketApi", {
         apiName: `${cdk.Stack.of(scope).stackName}_fabulous_${_apiId}`,
+
         connectRouteOptions: {
             integration: new WebSocketLambdaIntegration(
                 "ConnectIntegration",
@@ -79,13 +83,57 @@ export function createApiGatewayResources(
     const _stageId = 'DevStage';
     const stage = new apigatewayv2.WebSocketStage(scope, _stageId, {
         stageName: 'dev', // this is the path after the API
-        webSocketApi: api,
+        webSocketApi: wsApi,
         autoDeploy: true,
     });
     // @dev set the APIGATEWAY_ENDPOINT environment variable
     const apiGatewayEndpoint = stage.url.replace('wss://', 'https://');
 
+    /*******************
+     * Certificart
+     */
+    const hostedZoneId = 'BCA-HostedZone';
+    const hostedZone = route53.HostedZone.fromLookup(scope, hostedZoneId, {
+        domainName: 'brandcopy-ai.xyz',
+    });
+    // Import the ACM certificate
+    const _domainName = 'dev-ws.brandcopy-ai.xyz';
+    const certificateId = 'BCA-Certificate';
+    const certificate = new certificatemanager.Certificate(scope, certificateId, {
+        domainName: _domainName,
+        validation: certificatemanager.CertificateValidation.fromDns(hostedZone),
+    });
+    const domainNameId = 'BCA-CustomDomain';
+    const domainName = new apigatewayv2.CfnDomainName(scope, domainNameId, {
+        domainName: _domainName,
+        domainNameConfigurations: [{
+            certificateArn: certificate.certificateArn,
+            endpointType: 'REGIONAL',  // WebSocket APIs only support regional endpoints
+        }],
+    });
 
+    // Map custom domain to WebSocket API
+    const apiMappingId = 'ApiMapping';
+    const apiMapping = new apigatewayv2.CfnApiMapping(scope, apiMappingId, {
+        apiId: wsApi.apiId,
+        domainName: domainName.ref,
+        stage: stage.stageName,  // Define the stage
+    });
+    // Ensure base path mapping depends on the stage
+    apiMapping.node.addDependency(stage);
+    apiMapping.node.addDependency(wsApi);
+    apiMapping.node.addDependency(stage);
+
+
+    // Create a Route53 alias record to point the custom domain to the WebSocket API
+    new route53.ARecord(scope, 'WsApiAliasRecord', {
+        zone: hostedZone,
+        target: route53.RecordTarget.fromAlias(new targets.ApiGatewayv2DomainProperties(
+            domainName.attrRegionalDomainName,
+            domainName.attrRegionalHostedZoneId,
+        )),
+        recordName: 'dev-ws',  // This creates dev-ws.brandcopy-ai.xyz
+    });
     /*******************
      * Permissions
      */
@@ -94,7 +142,7 @@ export function createApiGatewayResources(
     connectionTable.grantReadWriteData(disconnectLambda);
 
     return {
-        api,
+        api: wsApi,
         connectLambda,
         disconnectLambda,
         apiGatewayEndpoint,

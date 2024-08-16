@@ -8,6 +8,7 @@ import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integra
 
 import { createWebScraperResources } from './ddb-res';
 import { createApiGatewayResources } from './api-gateway-res';
+import { createVectorStoreResources } from './vector-ddb-res';
 
 export class SGStack extends cdk.Stack {
   public readonly snsToUs: sns.Topic; // SNS topic to forward messages to US
@@ -19,7 +20,8 @@ export class SGStack extends cdk.Stack {
     /*******************
      * DynamoDB tables
      */
-    const { regularTable, vectorTable } = createWebScraperResources(this);
+    const { regularTable } = createWebScraperResources(this);
+    const { vectorTable } = createVectorStoreResources(this);
 
     /*******************
      * S3 buckets
@@ -60,7 +62,7 @@ export class SGStack extends cdk.Stack {
     /*******************
      * WebSocket API
      */
-    const {api, apiGatewayEndpoint} = createApiGatewayResources(this)
+    const { api, apiGatewayEndpoint } = createApiGatewayResources(this)
     api.addRoute('ping', {
       integration: new WebSocketLambdaIntegration(
         "PingIntegration",
@@ -100,16 +102,16 @@ export class SGStack extends cdk.Stack {
     /*******************
      * Web Scraper Lambda
      */
-    const webScraperLambda = new lambda.Function(this, 'webScraperLambda', {
-      runtime: lambda.Runtime.PYTHON_3_11,
-      handler: 'main.handler',
-      code: lambda.Code.fromAsset('lambda-py/webscraper_function'),
-      memorySize: 1024,
-      timeout: cdk.Duration.minutes(10),
-      environment: {
-        TABLE_NAME: vectorTable.tableName,
-      },
-    });
+    // const webScraperLambda = new lambda.Function(this, 'webScraperLambda', {
+    //   runtime: lambda.Runtime.PYTHON_3_11,
+    //   handler: 'main.handler',
+    //   code: lambda.Code.fromAsset('lambda-py/webscraper_function'),
+    //   memorySize: 1024,
+    //   timeout: cdk.Duration.minutes(10),
+    //   environment: {
+    //     TABLE_NAME: vectorTable.tableName,
+    //   },
+    // });
 
     /*******************
      * Permissions
@@ -128,14 +130,14 @@ export class SGStack extends cdk.Stack {
       sourceArn: `arn:aws:sns:us-east-1:${this.account}:*SnsResultToSG*`
     });
 
-    vectorTable.grantReadWriteData(webScraperLambda);
-    // Grant Bedrock permissions to Lambda
-    webScraperLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['bedrock:InvokeModel'],
-      /**
-       * @TODO only need embedding model
-       */
-      resources: ['*'],
-    }));
+    // vectorTable.grantReadWriteData(webScraperLambda);
+    // // Grant Bedrock permissions to Lambda
+    // webScraperLambda.addToRolePolicy(new iam.PolicyStatement({
+    //   actions: ['bedrock:InvokeModel'],
+    //   /**
+    //    * @TODO only need embedding model
+    //    */
+    //   resources: ['*'],
+    // }));
   }
 }

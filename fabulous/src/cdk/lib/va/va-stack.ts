@@ -19,7 +19,6 @@ export class VAStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: VAStackProps
   ) {
     super(scope, id, props);
-    return ;
 
     /*******************
      * DynamoDB tables
@@ -54,12 +53,10 @@ export class VAStack extends cdk.Stack {
       props.resultProcessorLambdaArn
     );
     const bedrockLambda = new lambda.Function(this, 'BedrockLambda', {
-      // runtime: lambda.Runtime.NODEJS_20_X,
-      // handler: "handlers/bedrock.handler",
-      // code: lambda.Code.fromAsset('lambda'),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "main.handler",
-      code: lambda.Code.fromAsset('lambda-py/bedrock_function'),
+      // code: lambda.Code.fromAsset('lambda-py/bedrock_function'),
+      code: lambda.Code.fromAsset('../lambdas/bedrock_function'),
       timeout: cdk.Duration.minutes(3),  // Set timeout to 5 minutes
       environment: {
         S3_BUCKET: s3BucketUS.bucketName,
