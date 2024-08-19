@@ -6,6 +6,9 @@ import * as path from 'path';
 import * as custom_resources from 'aws-cdk-lib/custom-resources';
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from 'aws-cdk-lib/aws-logs';  // Add this import
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as ecrDeploy from 'cdk-ecr-deployment';
+import * as ecrAssets from 'aws-cdk-lib/aws-ecr-assets';
 
 
 export const createVectorStoreResources = (scope: Construct) => {
@@ -35,12 +38,16 @@ export const createVectorStoreResources = (scope: Construct) => {
     const vectorDDBDockerImageCode = lambda.DockerImageCode.fromImageAsset('../lambdas', {
         buildArgs: {
             LAMBDA_FUNCTION_DIR: "vector-ddb"
-        }
+        },
     });
+
+
+    // init lambda
     const _initRandomVectorsFnId = 'InitRandomVectorsFunction';
     const initRandomVectorsFn = new lambda.DockerImageFunction(scope, _initRandomVectorsFnId, {
         functionName: `${cdk.Stack.of(scope).stackName}_fabulous_${_initRandomVectorsFnId}`,
         code: vectorDDBDockerImageCode,
+
         timeout: cdk.Duration.minutes(10), // Increase timeout as needed
         environment: {
             LAMBDA_HANDLER: 'init_random_vectors',
@@ -53,9 +60,8 @@ export const createVectorStoreResources = (scope: Construct) => {
         functionName: `${cdk.Stack.of(scope).stackName}_fabulous_${_addArticlesFnId}`,
         code: vectorDDBDockerImageCode,
         timeout: cdk.Duration.minutes(10), // Increase timeout as needed
-
         environment: {
-            LAMDBA_HANDLER: 'add_articles',
+            LAMBDA_HANDLER: 'add_articles',
             VECTOR_TABLE: vectorTable.tableName,
             RANDOM_VECTORS_TABLE: randomVectorsTable.tableName,
         },
@@ -65,14 +71,15 @@ export const createVectorStoreResources = (scope: Construct) => {
     const readArticlesLambda = new lambda.DockerImageFunction(scope, _readArticlesFnId, {
         code: vectorDDBDockerImageCode,
         timeout: cdk.Duration.minutes(10), // Increase timeout as needed
-
         environment: {
-            LAMDBA_HANDLER: 'read_articles',
+            LAMBDA_HANDLER: 'read_articles',
             VECTOR_TABLE: vectorTable.tableName,
             RANDOM_VECTORS_TABLE: randomVectorsTable.tableName,
         },
     });
 
+
+    // Custom Resource to initialize random vectors
     randomVectorsTable.grantReadWriteData(initRandomVectorsFn);
     const provider = new custom_resources.Provider(scope, 'InitRandomVectorsProvider', {
         onEventHandler: initRandomVectorsFn,

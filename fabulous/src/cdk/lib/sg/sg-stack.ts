@@ -8,7 +8,6 @@ import { WebSocketLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integra
 
 import { createWebScraperResources } from './ddb-res';
 import { createApiGatewayResources } from './api-gateway-res';
-import { createVectorStoreResources } from './vector-ddb-res';
 
 export class SGStack extends cdk.Stack {
   public readonly snsToUs: sns.Topic; // SNS topic to forward messages to US
@@ -21,7 +20,6 @@ export class SGStack extends cdk.Stack {
      * DynamoDB tables
      */
     const { regularTable } = createWebScraperResources(this);
-    const { vectorTable } = createVectorStoreResources(this);
 
     /*******************
      * S3 buckets

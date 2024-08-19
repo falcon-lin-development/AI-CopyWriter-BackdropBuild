@@ -34,7 +34,7 @@ def hash_vector(vector, random_vectors):
 def get_embedding(text):
     body = json.dumps({"inputText": text})
     response = bedrock_runtime.invoke_model(
-        modelId="amazon.titan-embed-text-v1",
+        modelId="amazon.titan-embed-text-v2:0",
         contentType="application/json",
         accept="application/json",
         body=body,
@@ -60,11 +60,20 @@ def handler(event, context):
         random_vectors = get_random_vectors()
         lsh_hash = hash_vector(query_embedding, random_vectors)
 
+        logger.info(json.dumps({
+            "message": "Query successful",
+            "query": query,
+            "hash": lsh_hash,
+        }))
+
         # Query the DynamoDB table for similar vectors
         response = dynamodb.query(
             TableName=vector_table_name,
-            KeyConditionExpression="hash = :hash",
-            ExpressionAttributeValues={":hash": {"S": lsh_hash}},
+            # KeyConditionExpression="hash = :hash",
+            # ExpressionAttributeValues={":hash": {"S": lsh_hash}},
+            KeyConditionExpression="#h = :hash_value",
+            ExpressionAttributeNames={"#h": "hash"},
+            ExpressionAttributeValues={":hash_value": {"N": str(lsh_hash)}},
         )
 
         # Calculate cosine similarity for each vector

@@ -7,6 +7,7 @@ import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as snsSubscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as iam from "aws-cdk-lib/aws-iam";
+import { createVectorStoreResources } from './vector-ddb-res';
 
 interface VAStackProps extends cdk.StackProps {
   snsToUsArn: string;
@@ -23,12 +24,14 @@ export class VAStack extends cdk.Stack {
     /*******************
      * DynamoDB tables
      */
-    const vectorTable = new dynamodb.Table(this, 'VectorTable', {
-      partitionKey: { name: 'hash', type: dynamodb.AttributeType.NUMBER },
-      sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
+    const { vectorTable } = createVectorStoreResources(this);
+
+    // const vectorTable = new dynamodb.Table(this, 'VectorTable', {
+    //   partitionKey: { name: 'hash', type: dynamodb.AttributeType.NUMBER },
+    //   sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+    //   billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    //   removalPolicy: cdk.RemovalPolicy.DESTROY,
+    // });
 
     /*******************
      * S3 buckets
