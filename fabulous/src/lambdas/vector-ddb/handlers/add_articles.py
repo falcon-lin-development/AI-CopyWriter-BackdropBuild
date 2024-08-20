@@ -17,12 +17,16 @@ random_vectors_table_name = os.environ["RANDOM_VECTORS_TABLE"]
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-
 def get_random_vectors():
-    response = dynamodb.get_item(
-        TableName=random_vectors_table_name, Key={"id": {"S": "random_vectors"}}
-    )
-    return json.loads(response["Item"]["vector"]["S"])
+    rvs=[]
+    for i in range(1, 4):
+        
+        response = dynamodb.get_item(
+            TableName=random_vectors_table_name, 
+            Key={"id": {"S": f"random_vectors_{i}"}}
+        )
+        rvs.append(json.loads(response["Item"]["vector"]["S"]))
+    return rvs
 
 
 def hash_vector(vector, random_vectors):
@@ -68,25 +72,28 @@ def handler(event, context):
                 }
             )
         )
-        lsh_hash = hash_vector(embedding, random_vectors)
+        lsh_hashes = [hash_vector(embedding, rv) for rv in random_vectors]
         logger.info(
             json.dumps(
                 {
                     "message": "LSH Hash",
-                    "hash": lsh_hash,
+                    "hash": lsh_hashes,
                 }
             )
         )
 
         # store to dynamodb
+        item = {
+            "id": {"S": article_id},
+            "content": {"S": json.dumps(content)},
+            "embedding": {"S": json.dumps(embedding)},
+            "hash1": {"N": str(int(lsh_hashes[0], 2))},
+            "hash2": {"N": str(int(lsh_hashes[1], 2))},
+            "hash3": {"N": str(int(lsh_hashes[2], 2))},
+        }
         response = dynamodb.put_item(
             TableName=vector_table_name,
-            Item={
-                "hash": {"N": str(lsh_hash)},
-                "id": {"S": article_id},
-                "content": {"S": json.dumps(content)},
-                "embedding": {"S": json.dumps(embedding)},
-            },
+            Item=item,
         )
 
         logger.info(
@@ -94,7 +101,7 @@ def handler(event, context):
                 {
                     "message": "Article added successfully",
                     "response": response,
-                    "hash": lsh_hash,
+                    "hash": lsh_hashes,
                 }
             )
         )

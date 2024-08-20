@@ -18,11 +18,21 @@ export const createVectorStoreResources = (scope: Construct) => {
     const _vectorTableId = 'VectorTable';
     const vectorTable = new dynamodb.Table(scope, _vectorTableId, {
         tableName: `${cdk.Stack.of(scope).stackName}_fabulous_${_vectorTableId}`,
-        partitionKey: { name: 'hash', type: dynamodb.AttributeType.NUMBER },
-        sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+        partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+        // sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
+    // Add GSIs for LSH Tables
+    // for i in range 3
+    for (let i = 1; i <= 3; i++) {
+        vectorTable.addGlobalSecondaryIndex({
+            indexName: `LSH${i}`,
+            partitionKey: { name: `hash${i}`, type: dynamodb.AttributeType.NUMBER },
+            sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+            projectionType: dynamodb.ProjectionType.ALL,
+        });
+    }
 
     const _randomVectorsTableId = 'RandomVectorsTable';
     const randomVectorsTable = new dynamodb.Table(scope, _randomVectorsTableId, {
@@ -85,7 +95,7 @@ export const createVectorStoreResources = (scope: Construct) => {
         onEventHandler: initRandomVectorsFn,
         logRetention: logs.RetentionDays.ONE_DAY,  // optional: for debugging
     });
-    const customResId = "customR";
+    const customResId = "customR2";
     new cdk.CustomResource(scope, customResId, {
         // serviceToken: initRandomVectorsFn.functionArn,
         serviceToken: provider.serviceToken,
