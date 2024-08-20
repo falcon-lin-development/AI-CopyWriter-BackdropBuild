@@ -1,5 +1,6 @@
 boto3==1.34.144
 botocore==1.34.144
+cfnresponse
 langchain==0.2.12
 numpy
-cfnresponse
+scipy==1.14.0
