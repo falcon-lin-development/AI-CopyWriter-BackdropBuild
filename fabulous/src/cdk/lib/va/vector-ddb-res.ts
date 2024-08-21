@@ -15,25 +15,6 @@ export const createVectorStoreResources = (scope: Construct) => {
     /*******************
      * DynamoDB tables
      */
-    const _vectorTableId = 'VectorTable';
-    const vectorTable = new dynamodb.Table(scope, _vectorTableId, {
-        tableName: `${cdk.Stack.of(scope).stackName}_fabulous_${_vectorTableId}`,
-        partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-        // sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-    // Add GSIs for LSH Tables
-    // for i in range 3
-    for (let i = 1; i <= 3; i++) {
-        vectorTable.addGlobalSecondaryIndex({
-            indexName: `LSH${i}`,
-            partitionKey: { name: `hash${i}`, type: dynamodb.AttributeType.NUMBER },
-            sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-            projectionType: dynamodb.ProjectionType.ALL,
-        });
-    }
-
     const _randomVectorsTableId = 'RandomVectorsTable';
     const randomVectorsTable = new dynamodb.Table(scope, _randomVectorsTableId, {
         tableName: `${cdk.Stack.of(scope).stackName}_fabulous_${_randomVectorsTableId}`,
@@ -42,12 +23,38 @@ export const createVectorStoreResources = (scope: Construct) => {
         removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    const _vectorTableId = 'NewVectorTable';
+    const vectorTable = new dynamodb.Table(scope, _vectorTableId, {
+        tableName: `${cdk.Stack.of(scope).stackName}_fabulous_${_vectorTableId}`,
+        partitionKey: { name: 'id', type: dynamodb.AttributeType.NUMBER },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const counterTable = new dynamodb.Table(scope, 'CounterTable', {
+        tableName: `${cdk.Stack.of(scope).stackName}_fabulous_CounterTable`,
+        partitionKey: { name: 'counter_name', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Add GSIs for LSH Tables
+    // for i in range 3
+    for (let i = 1; i <= 3; i++) {
+        vectorTable.addGlobalSecondaryIndex({
+            indexName: `LSH${i}`,
+            partitionKey: { name: `hash${i}`, type: dynamodb.AttributeType.NUMBER },
+            sortKey: { name: 'id', type: dynamodb.AttributeType.NUMBER },
+            projectionType: dynamodb.ProjectionType.ALL,
+        });
+    }
+
     /**
      * Internal lambda functions
      */
     const vectorDDBDockerImageCode = lambda.DockerImageCode.fromImageAsset('../lambdas', {
         buildArgs: {
-            LAMBDA_FUNCTION_DIR: "vector-ddb"
+            LAMBDA_FUNCTION_DIR: "vector_ddb"
         },
     });
 
@@ -74,6 +81,7 @@ export const createVectorStoreResources = (scope: Construct) => {
             LAMBDA_HANDLER: 'add_articles',
             VECTOR_TABLE: vectorTable.tableName,
             RANDOM_VECTORS_TABLE: randomVectorsTable.tableName,
+            COUNTER_TABLE: counterTable.tableName,
         },
     });
 
@@ -120,10 +128,13 @@ export const createVectorStoreResources = (scope: Construct) => {
         ],
     }));
 
-    vectorTable.grantReadWriteData(addArticlesLambda);
+    
     randomVectorsTable.grantReadWriteData(addArticlesLambda);
-    vectorTable.grantReadData(readArticlesLambda);
     randomVectorsTable.grantReadData(readArticlesLambda);
+    vectorTable.grantReadWriteData(addArticlesLambda);
+    vectorTable.grantReadData(readArticlesLambda);
+    counterTable.grantReadWriteData(addArticlesLambda);
+    counterTable.grantReadData(readArticlesLambda);
 
     return { vectorTable, randomVectorsTable };
 }
