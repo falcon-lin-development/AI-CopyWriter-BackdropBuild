@@ -136,6 +136,6 @@ export const createVectorStoreResources = (scope: Construct) => {
     counterTable.grantReadWriteData(addArticlesLambda);
     counterTable.grantReadData(readArticlesLambda);
 
-    return { vectorTable, randomVectorsTable };
+    return { vectorTable, addArticlesLambda, readArticlesLambda };
 }
 

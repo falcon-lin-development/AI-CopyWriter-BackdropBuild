@@ -24,14 +24,7 @@ export class VAStack extends cdk.Stack {
     /*******************
      * DynamoDB tables
      */
-    const { vectorTable } = createVectorStoreResources(this);
-
-    // const vectorTable = new dynamodb.Table(this, 'VectorTable', {
-    //   partitionKey: { name: 'hash', type: dynamodb.AttributeType.NUMBER },
-    //   sortKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-    //   billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-    //   removalPolicy: cdk.RemovalPolicy.DESTROY,
-    // });
+    const { vectorTable, addArticlesLambda, readArticlesLambda } = createVectorStoreResources(this);
 
     /*******************
      * S3 buckets
