@@ -1,0 +1,28 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.handler = void 0;
+const logger_1 = require("../utils/logger");
+const client_dynamodb_1 = require("@aws-sdk/client-dynamodb");
+const lib_dynamodb_1 = require("@aws-sdk/lib-dynamodb");
+const client = new client_dynamodb_1.DynamoDBClient({});
+const dynamodb = lib_dynamodb_1.DynamoDBDocumentClient.from(client);
+const handler = async (event, context) => {
+    try {
+        (0, logger_1.debug)("Disconnected Event", { event, context });
+        const connectionId = event.requestContext.connectionId;
+        const params = {
+            TableName: process.env.DDB_TABLE,
+            Key: { id: connectionId }
+        };
+        await dynamodb.send(new lib_dynamodb_1.DeleteCommand(params));
+        // console.log('Connection removed from DynamoDB');
+        (0, logger_1.debug)("Removed connection", { connectionId });
+        return { statusCode: 200, body: 'Disconnected' };
+    }
+    catch (error) {
+        (0, logger_1.logError)('Error removing connection:', error);
+        return { statusCode: 500, body: 'Failed to disconnect' };
+    }
+};
+exports.handler = handler;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZGlzY29ubmVjdC5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9oYW5kbGVycy9kaXNjb25uZWN0LnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7OztBQUNBLDRDQUF3RDtBQUN4RCw4REFBMEQ7QUFDMUQsd0RBQThFO0FBRzlFLE1BQU0sTUFBTSxHQUFHLElBQUksZ0NBQWMsQ0FBQyxFQUFFLENBQUMsQ0FBQztBQUN0QyxNQUFNLFFBQVEsR0FBRyxxQ0FBc0IsQ0FBQyxJQUFJLENBQUMsTUFBTSxDQUFDLENBQUM7QUFFOUMsTUFBTSxPQUFPLEdBQXNDLEtBQUssRUFBRSxLQUFzQyxFQUFFLE9BQWdCLEVBQUUsRUFBRTtJQUMzSCxJQUFJLENBQUM7UUFDSCxJQUFBLGNBQUssRUFBQyxvQkFBb0IsRUFBRSxFQUFFLEtBQUssRUFBRSxPQUFPLEVBQUUsQ0FBQyxDQUFDO1FBRWhELE1BQU0sWUFBWSxHQUFHLEtBQUssQ0FBQyxjQUFjLENBQUMsWUFBWSxDQUFDO1FBQ3ZELE1BQU0sTUFBTSxHQUFHO1lBQ2IsU0FBUyxFQUFFLE9BQU8sQ0FBQyxHQUFHLENBQUMsU0FBVTtZQUNqQyxHQUFHLEVBQUUsRUFBRSxFQUFFLEVBQUUsWUFBWSxFQUFFO1NBQzFCLENBQUM7UUFFRixNQUFNLFFBQVEsQ0FBQyxJQUFJLENBQUMsSUFBSSw0QkFBYSxDQUFDLE1BQU0sQ0FBQyxDQUFDLENBQUM7UUFDL0MsbURBQW1EO1FBQ25ELElBQUEsY0FBSyxFQUFDLG9CQUFvQixFQUFFLEVBQUUsWUFBWSxFQUFFLENBQUMsQ0FBQztRQUM5QyxPQUFPLEVBQUUsVUFBVSxFQUFFLEdBQUcsRUFBRSxJQUFJLEVBQUUsY0FBYyxFQUFFLENBQUM7SUFDbkQsQ0FBQztJQUFDLE9BQU8sS0FBSyxFQUFFLENBQUM7UUFDZixJQUFBLGlCQUFRLEVBQUMsNEJBQTRCLEVBQUUsS0FBSyxDQUFDLENBQUM7UUFDOUMsT0FBTyxFQUFFLFVBQVUsRUFBRSxHQUFHLEVBQUUsSUFBSSxFQUFFLHNCQUFzQixFQUFFLENBQUM7SUFDM0QsQ0FBQztBQUNILENBQUMsQ0FBQztBQWxCVyxRQUFBLE9BQU8sV0FrQmxCIiwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgQVBJR2F0ZXdheUV2ZW50LCBDb250ZXh0LCBBUElHYXRld2F5UHJveHlXZWJzb2NrZXRIYW5kbGVyVjIsIEFQSUdhdGV3YXlQcm94eVdlYnNvY2tldEV2ZW50VjIgfSBmcm9tICdhd3MtbGFtYmRhJztcbmltcG9ydCB7IGRlYnVnLCBsb2dFcnJvciwgaW5mbyB9IGZyb20gXCIuLi91dGlscy9sb2dnZXJcIjtcbmltcG9ydCB7IER5bmFtb0RCQ2xpZW50IH0gZnJvbSAnQGF3cy1zZGsvY2xpZW50LWR5bmFtb2RiJztcbmltcG9ydCB7IER5bmFtb0RCRG9jdW1lbnRDbGllbnQsIERlbGV0ZUNvbW1hbmQgfSBmcm9tICdAYXdzLXNkay9saWItZHluYW1vZGInO1xuXG5cbmNvbnN0IGNsaWVudCA9IG5ldyBEeW5hbW9EQkNsaWVudCh7fSk7XG5jb25zdCBkeW5hbW9kYiA9IER5bmFtb0RCRG9jdW1lbnRDbGllbnQuZnJvbShjbGllbnQpO1xuXG5leHBvcnQgY29uc3QgaGFuZGxlcjogQVBJR2F0ZXdheVByb3h5V2Vic29ja2V0SGFuZGxlclYyID0gYXN5bmMgKGV2ZW50OiBBUElHYXRld2F5UHJveHlXZWJzb2NrZXRFdmVudFYyLCBjb250ZXh0OiBDb250ZXh0KSA9PiB7XG4gIHRyeSB7XG4gICAgZGVidWcoXCJEaXNjb25uZWN0ZWQgRXZlbnRcIiwgeyBldmVudCwgY29udGV4dCB9KTtcblxuICAgIGNvbnN0IGNvbm5lY3Rpb25JZCA9IGV2ZW50LnJlcXVlc3RDb250ZXh0LmNvbm5lY3Rpb25JZDtcbiAgICBjb25zdCBwYXJhbXMgPSB7XG4gICAgICBUYWJsZU5hbWU6IHByb2Nlc3MuZW52LkREQl9UQUJMRSEsXG4gICAgICBLZXk6IHsgaWQ6IGNvbm5lY3Rpb25JZCB9XG4gICAgfTtcblxuICAgIGF3YWl0IGR5bmFtb2RiLnNlbmQobmV3IERlbGV0ZUNvbW1hbmQocGFyYW1zKSk7XG4gICAgLy8gY29uc29sZS5sb2coJ0Nvbm5lY3Rpb24gcmVtb3ZlZCBmcm9tIER5bmFtb0RCJyk7XG4gICAgZGVidWcoXCJSZW1vdmVkIGNvbm5lY3Rpb25cIiwgeyBjb25uZWN0aW9uSWQgfSk7XG4gICAgcmV0dXJuIHsgc3RhdHVzQ29kZTogMjAwLCBib2R5OiAnRGlzY29ubmVjdGVkJyB9O1xuICB9IGNhdGNoIChlcnJvcikge1xuICAgIGxvZ0Vycm9yKCdFcnJvciByZW1vdmluZyBjb25uZWN0aW9uOicsIGVycm9yKTtcbiAgICByZXR1cm4geyBzdGF0dXNDb2RlOiA1MDAsIGJvZHk6ICdGYWlsZWQgdG8gZGlzY29ubmVjdCcgfTtcbiAgfVxufTtcbiJdfQ==
