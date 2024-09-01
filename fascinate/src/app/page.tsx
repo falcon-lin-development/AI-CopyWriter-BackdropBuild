@@ -16,6 +16,7 @@ enum AIState {
 
 const Home: NextPage = () => {
   const [prompt, setPrompt] = useState('');
+  const [lastPrompt, setLastPrompt] = useState('');
   const [result, setResult] = useState('');
   // const [isLoading, setIsLoading] = useState(false);
   const [aiState, setAIState] = useState(AIState.IDLE);
@@ -43,12 +44,16 @@ const Home: NextPage = () => {
       };
 
       websocket.current.onmessage = (event) => {
-        console.log('WebSocket message received:', event.data);
+        console.log({
+          msg: 'WebSocket message received:',
+          data: event.data
+        });
 
         const response = JSON.parse(event.data);
         if (response.result) {
           setAIState(AIState.IDLE);
           setResult(response.result.recommended);
+          setPrompt('');
         }
         if (response.message) {
           setAIState(AIState.MESSAGE_RECEIVED);
@@ -72,16 +77,16 @@ const Home: NextPage = () => {
   const handleSubmit = () => {
     if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
       const payload = {
-        action: "message",
+        action: "gen-post",
         message: prompt,
       };
-      setPrompt('');
+      setLastPrompt(prompt);
       setAIState(AIState.REQUEST_SENT);
       websocket.current.send(JSON.stringify(payload));
     }
   };
 
-  
+
   return (
     <>
       <AppBar />
@@ -98,18 +103,20 @@ const Home: NextPage = () => {
         }}>
           <TextField
             variant="outlined"
-            placeholder={
+            placeholder='Type your prompt here...'
+            multiline
+            rows={4}
+            fullWidth
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            disabled={aiState !== AIState.IDLE}
+            helperText={
               aiState === AIState.IDLE
                 ? 'Type your prompt here...'
                 : aiState === AIState.MESSAGE_RECEIVED
                   ? "Generating Result..."
                   : "Loading..."
             }
-            multiline
-            rows={4}
-            fullWidth
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
             InputProps={{
               endAdornment: (
                 <IconButton onClick={handleSubmit} edge="end" disabled={aiState !== AIState.IDLE}>
@@ -149,13 +156,23 @@ const Home: NextPage = () => {
               color: 'white',
             }}
           >
-            <Typography variant="h6" gutterBottom>Result:</Typography>
-            <ReactMarkdown>{result}</ReactMarkdown>
+            {
+              lastPrompt && (<>
+                <Typography variant="h6" gutterBottom>User Input:</Typography>
+                <ReactMarkdown>{lastPrompt}</ReactMarkdown>
+              </>)
+            }
+            {result && (
+              <>
+                < Typography variant="h6" gutterBottom>Result:</Typography>
+                <ReactMarkdown>{result}</ReactMarkdown>
+              </>
+            )}
           </Paper>
 
           <DotIcon color={isWSConnected ? "green" : "red"} size={48} />
         </Box>
-      </MainBody>
+      </MainBody >
     </>
   );
 }
